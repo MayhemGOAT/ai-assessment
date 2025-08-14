@@ -1,0 +1,35 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-assessment_db}
+      POSTGRES_USER: ${POSTGRES_USER:-assessment_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-assessment_pass}
+    ports: ["5432:5432"]
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  backend:
+    build: ./backend
+    depends_on: [db]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-assessment_user}:${POSTGRES_PASSWORD:-assessment_pass}@db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-assessment_db}
+    ports: ["8000:8000"]
+    volumes: ["./backend:/app"]
+
+  frontend:
+    build: ./frontend
+    depends_on: [backend]
+    env_file: .env
+    ports: ["3000:3000"]
+    volumes: ["./frontend:/app"]
+
+  adminer:
+    image: adminer
+    ports: ["8080:8080"]
+
+volumes:
+  db_data:
