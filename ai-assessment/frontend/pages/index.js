@@ -1,7 +1,7 @@
 import useSWR from 'swr'
 import axios from 'axios'
 const fetcher = url => axios.get(url).then(r => r.data)
-const BE = process.env.BACKEND_URL || "http://localhost:8000"
+const BE = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || "";
 
 export default function Home() {
   const { data } = useSWR(`${BE}/assessments/available`, fetcher)
