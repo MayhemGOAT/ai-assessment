@@ -2,22 +2,56 @@ FROM node:20
 
 WORKDIR /app
 
-# Copy only package manifests first for better caching
-COPY package.json package-lock.json* /app/
+# Copy manifest files
+COPY package.json package-lock.json* ./
 
-# Ensure Next.js + React are present even if package.json was missing them previously
-RUN set -eux; \
-    if ! grep -q '"next"' package.json; then \
-      echo "Adding next/react/react-dom to package.json"; \
-      npm install --save next react react-dom; \
-    fi; \
-    npm install
+# Install all dependencies (always)
+RUN npm install
 
-# Now copy the rest of the app
-COPY . /app
+# Copy source code
+COPY . .
 
+# Expose port 3000 for Next.js
 ENV PORT=3000
-# Explicitly expose so Codespaces can detect it
 EXPOSE 3000
 
+# Start Next.js in dev mode
+CMD ["npm", "run", "dev", "--", "-p", "3000"]
+FROM node:20
+
+WORKDIR /app
+
+# Copy manifest files
+COPY package.json package-lock.json* ./
+
+# Install all dependencies (always)
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose port 3000 for Next.js
+ENV PORT=3000
+EXPOSE 3000
+
+# Start Next.js in dev mode
+CMD ["npm", "run", "dev", "--", "-p", "3000"]
+FROM node:20
+
+WORKDIR /app
+
+# Copy manifest files
+COPY package.json package-lock.json* ./
+
+# Install all dependencies (always)
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose port 3000 for Next.js
+ENV PORT=3000
+EXPOSE 3000
+
+# Start Next.js in dev mode
 CMD ["npm", "run", "dev", "--", "-p", "3000"]

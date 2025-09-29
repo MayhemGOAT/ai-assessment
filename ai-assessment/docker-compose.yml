@@ -1,46 +1,52 @@
-services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-assessment_db}
-      POSTGRES_USER: ${POSTGRES_USER:-assessment_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-assessment_pass}
-    ports:
-      - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+version: "3.9"
 
+services:
   backend:
     build: ./backend
-    depends_on:
-      - db
+    container_name: ai-assessment-backend
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-assessment_user}:${POSTGRES_PASSWORD:-assessment_pass}@db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-assessment_db}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-assessment_user}:${POSTGRES_PASSWORD:-assessment_pass}@db:5432/${POSTGRES_DB:-assessment_db}
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    depends_on:
+      - db
 
   frontend:
     build: ./frontend
-    depends_on:
-      - backend
-    env_file: .env
+    container_name: ai-assessment-frontend
     ports:
       - "3000:3000"
-    # Bind-mount the app for hot reload, but keep node_modules inside the container
     volumes:
       - ./frontend:/app
-      - /app/node_modules
-    # Ensure deps exist AFTER the bind mount, then start dev server
-    command: sh -lc "npm install && npm run dev"
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:16
+    container_name: ai-assessment-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-assessment_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-assessment_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-assessment_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./backend/app/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   adminer:
     image: adminer
+    container_name: ai-assessment-adminer
+    restart: always
     ports:
       - "8080:8080"
+    depends_on:
+      - db
 
 volumes:
   db_data:

@@ -1,78 +1,55 @@
-import random, re
+import json
 from typing import List, Dict
+from openai import OpenAI
 
-def _sentences(text: str) -> List[str]:
-    parts = re.split(r'[.!?]\s+', text)
-    return [p.strip() for p in parts if len(p.strip()) > 20]
+# Initialize OpenAI client (requires OPENAI_API_KEY in your environment / .env file)
+client = OpenAI()
 
-def generate_mcq(text: str, topic: str|None, difficulty: str, k: int) -> List[Dict]:
-    sents = _sentences(text) or [text]
-    out = []
-    for i in range(k):
-        base = random.choice(sents)
-        correct = base[:50].strip()
-        options = [correct, "Option X", "Option Y", "Option Z"]
-        random.shuffle(options)
-        out.append({
-            "type": "mcq",
-            "question": f"Which option best completes: '{base[:80]}...'?",
-            "options": options,
-            "correct_answer": correct,
-            "explanation": "Derived from source sentence.",
-            "topic": topic or "General",
-            "difficulty": difficulty,
-            "source": "ingested"
-        })
-    return out
+def generate_all(topic: str, num_questions: int = 5) -> List[Dict[str, str]]:
+    """
+    Generate multiple-choice questions using OpenAI API.
 
-def generate_desc(text: str, topic: str|None, difficulty: str, k: int) -> List[Dict]:
-    sents = _sentences(text) or [text]
-    out = []
-    for i in range(k):
-        base = random.choice(sents)
-        out.append({
-            "type": "descriptive",
-            "question": f"Briefly explain the idea in: '{base[:100]}...'",
-            "options": None,
-            "correct_answer": base[:120],
-            "explanation": "Free-form reference answer from source.",
-            "topic": topic or "General",
-            "difficulty": difficulty,
-            "source": "ingested"
-        })
-    return out
+    Args:
+        topic (str): Subject or concept to generate questions about.
+        num_questions (int): Number of questions to generate.
 
-def generate_code(text: str, topic: str|None, difficulty: str, k: int) -> List[Dict]:
-    templates = [
-        {
-            "question": "Write a function `sum_array(arr)` that returns the sum of integers in arr.",
-            "correct_answer": "def sum_array(arr):\n    return sum(arr)",
-            "explanation": "Use Python's built-in sum."
-        },
-        {
-            "question": "Given a string s, return True if it is a palindrome, ignoring case and spaces.",
-            "correct_answer": "def is_palindrome(s):\n    t=''.join(s.lower().split())\n    return t==t[::-1]",
-            "explanation": "Normalize then reverse compare."
-        }
+    Returns:
+        List[Dict[str, str]]: A list of question objects.
+    """
+
+    prompt = f"""
+    Generate {num_questions} multiple-choice questions on the topic "{topic}".
+    Each question should have:
+    - 'question' (string)
+    - 'options' (list of 4 choices, strings)
+    - 'answer' (the correct choice as string)
+
+    Return the output as strict JSON list.
+    Example:
+    [
+        {{
+            "question": "What is 2+2?",
+            "options": ["3","4","5","6"],
+            "answer": "4"
+        }}
     ]
-    out = []
-    for i in range(k):
-        tmpl = random.choice(templates)
-        out.append({
-            "type": "coding",
-            "question": tmpl["question"],
-            "options": None,
-            "correct_answer": tmpl["correct_answer"],
-            "explanation": tmpl["explanation"],
-            "topic": topic or "Programming",
-            "difficulty": difficulty,
-            "source": "ingested"
-        })
-    return out
+    """
 
-def generate_all(text: str, topic: str|None, difficulty: str, num_mcq: int, num_desc: int, num_code: int) -> List[Dict]:
-    return (
-        generate_mcq(text, topic, difficulty, num_mcq) +
-        generate_desc(text, topic, difficulty, num_desc) +
-        generate_code(text, topic, difficulty, num_code)
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",   # you can switch to gpt-4o if needed
+        messages=[
+            {"role": "system", "content": "You are a helpful question generator."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7
     )
+
+    raw_content = response.choices[0].message.content.strip()
+
+    try:
+        results = json.loads(raw_content)
+    except Exception:
+        # If not valid JSON, wrap as fallback
+        results = [{"question": "Error parsing AI output", "options": [], "answer": ""}]
+
+    return results
